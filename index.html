@@ -143,6 +143,20 @@ input[type=radio]{accent-color:var(--ih-orange);width:16px;height:16px;flex:none
 .estado i{width:7px;height:7px;border-radius:50%;background:var(--ok);display:block}
 .estado.off{color:var(--warn);border-color:rgba(224,163,46,.4)}
 .estado.off i{background:var(--warn)}
+.upd{position:fixed;right:20px;bottom:20px;z-index:120;max-width:min(380px,calc(100vw - 32px));
+  display:none;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;
+  background:var(--panel-2);border:1px solid rgba(239,128,24,.45);
+  box-shadow:0 18px 44px rgba(0,0,0,.5);
+  transform:translateY(130%);transition:transform .3s cubic-bezier(.2,.8,.2,1)}
+.upd.on{display:flex;transform:translateY(0)}
+.upd .txt{min-width:0;flex:1}
+.upd b{display:block;font:600 13px var(--f);color:#fff}
+.upd span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45}
+.upd .upd-x{background:none;border:0;color:var(--muted);font-size:19px;line-height:1;
+  cursor:pointer;padding:2px 4px;border-radius:6px;flex:none}
+.upd .upd-x:hover{color:#fff}
+@media(max-width:560px){.upd{right:12px;left:12px;bottom:12px;max-width:none}}
+@media print{.upd{display:none!important}}
 
 /* panel héroe del acero */
 .hero2{display:grid;grid-template-columns:240px minmax(0,1fr) 250px;gap:28px;align-items:center;
@@ -307,7 +321,7 @@ footer .sep{opacity:.35}
       <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5v9m0 0L4.5 7M8 10.5 11.5 7M2 12.5v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Instalar app
     </button>
-    <span class="version" title="Versión de lógica y fecha de revisión">v07.6 · 2026.11</span>
+    <span class="version" title="Versión de lógica y fecha de revisión">v07.7 · 2026.11</span>
   </div>
 </div>
 
@@ -559,19 +573,27 @@ footer .sep{opacity:.35}
   <span class="sep">·</span>
   <span>Desarrollado por <b>Patricio Farías</b></span>
   <span class="sep">·</span>
-  <span>Versión lógica <b>v07.6</b> · 2026.11</span>
+  <span>Versión lógica <b>v07.7</b> · 2026.11</span>
   <span class="sep">·</span>
   <span>Supuestos: C 2400 · U 3000 · traslapo 600 · holgura 2 mm · plancha YC 1,20 × 2,40 m</span>
 </footer>
 
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="upd" id="aviso-upd" role="status" aria-live="polite">
+  <div class="txt">
+    <b>Nueva versión disponible</b>
+    <span>El resumen de muros se conserva al actualizar.</span>
+  </div>
+  <button type="button" class="btn primary slim" id="b-actualizar">Actualizar</button>
+  <button type="button" class="upd-x" id="b-upd-cerrar" aria-label="Cerrar aviso">&times;</button>
+</div>
 
 <script>
 (function(){
 'use strict';
 
-const APP_VERSION  = 'v07.6';
+const APP_VERSION  = 'v07.7';
 const APP_REVISION = '2026.11';
 const BARRA_C   = 2400;
 const BARRA_U   = 3000;
@@ -1485,10 +1507,49 @@ $('tbl-historial').addEventListener('click', e => {
   if (b.dataset.act === 'del')  eliminar(b.dataset.id);
 });
 
-/* ---------- app instalable ---------- */
+/* ---------- app instalable y aviso de version nueva ---------- */
+let regSW = null, recargandoPorSW = false;
+function mostrarAvisoUpd(){ $('aviso-upd').classList.add('on'); }
+
 if ('serviceWorker' in navigator){
-  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js');
+      regSW = reg;
+      // Puede haber quedado una version esperando de una visita anterior.
+      if (reg.waiting && navigator.serviceWorker.controller) mostrarAvisoUpd();
+      reg.addEventListener('updatefound', () => {
+        const nuevo = reg.installing;
+        if (!nuevo) return;
+        nuevo.addEventListener('statechange', () => {
+          // Con controller presente es una actualizacion, no la primera instalacion.
+          if (nuevo.state === 'installed' && navigator.serviceWorker.controller) mostrarAvisoUpd();
+        });
+      });
+      // Revisar al volver a la app y cada media hora, por si queda abierta todo el dia.
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) reg.update().catch(()=>{});
+      });
+      setInterval(() => reg.update().catch(()=>{}), 30*60*1000);
+    } catch(e){}
+  });
+
+  // El worker nuevo tomo el control: recargar una sola vez.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (recargandoPorSW) return;
+    recargandoPorSW = true;
+    location.reload();
+  });
 }
+
+$('b-actualizar').addEventListener('click', () => {
+  const b = $('b-actualizar');
+  b.disabled = true;
+  b.textContent = 'Actualizando…';
+  if (regSW && regSW.waiting) regSW.waiting.postMessage('SALTAR_ESPERA');
+  else location.reload();
+});
+$('b-upd-cerrar').addEventListener('click', () => $('aviso-upd').classList.remove('on'));
 
 // Chrome y Edge avisan cuando la app se puede instalar.
 let promesaInstalar = null;

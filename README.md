@@ -76,11 +76,23 @@ assets/                 íconos de la marca y tipografía DM Sans
 El paquete se genera con `build.py` (fuera del repositorio) a partir del
 `index.html` de la app. Al publicar cambios:
 
-1. Subir `APP_VERSION` en `index.html`. El nombre del caché en `sw.js` se deriva
-   de ahí, así que los equipos que ya tienen la app instalada reciben la nueva
-   versión. **Si no se sube, siguen viendo la anterior.**
+1. **Subir siempre `APP_VERSION` en `index.html`.** El nombre del caché en
+   `sw.js` se deriva de ahí. Es lo que dispara el aviso de versión nueva en los
+   equipos que ya tienen la app instalada. Si no se sube, `sw.js` queda idéntico,
+   el navegador no detecta nada y los equipos siguen con la versión anterior
+   hasta la segunda apertura.
 2. Para cambiar el logo o los íconos, reemplazar los PNG de `assets/`
    manteniendo nombres y tamaños.
+
+### Cómo llega una actualización
+
+Al detectar una versión nueva, la app la descarga en segundo plano y muestra el
+aviso **"Nueva versión disponible"** con un botón *Actualizar*. Hasta que el
+usuario lo pulse sigue trabajando con la versión que tenía, para no interrumpir
+una cubicación a medias. El resumen de muros se conserva: vive en
+`localStorage`, que la actualización no toca.
+
+La app revisa si hay versión nueva al volver a ella y cada media hora.
 
 La app imprime en claro aunque la pantalla sea oscura, con el logo en su versión
 original sobre blanco.

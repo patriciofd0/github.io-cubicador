@@ -1,7 +1,7 @@
 /* Service worker del Cubicador Interhaus.
    Cache-first con revalidacion en segundo plano.
    El nombre del cache incluye la version: al publicar una nueva, la anterior se descarta. */
-const CACHE = 'cubicador-v07.6';
+const CACHE = 'cubicador-v07.7';
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest',
   './assets/icon-192.png', './assets/icon-512.png',
@@ -11,7 +11,13 @@ const ARCHIVOS = [
 ];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));
+  // Sin skipWaiting: la version nueva queda en espera hasta que el usuario
+  // acepte el aviso, para no recargar la app mientras se esta cubicando.
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)));
+});
+
+self.addEventListener('message', e => {
+  if (e.data === 'SALTAR_ESPERA') self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
